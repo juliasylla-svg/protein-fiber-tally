@@ -1,0 +1,15 @@
+{
+  "name": "Protein Fiber Tally Icon",
+  "short_name": "Protein Fiber Tally Icon",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f7f7f7",
+  "theme_color": "#4CAF50",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
