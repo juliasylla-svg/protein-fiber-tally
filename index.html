@@ -5,7 +5,7 @@
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Protein Fiber Tally">
+<meta name="apple-mobile-web-app-title" content="Food Tally">
 <meta name="theme-color" content="#4CAF50">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,11 +16,15 @@
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     padding: 16px;
     background: #f7f7f7;
+    max-width: 42rem;
+    margin: 0 auto;
   }
 
-  h1 { margin-bottom: 8px; }
+  h1 {
+    margin-bottom: 8px;
+  }
 
-  .totals {
+  .panel {
     background: white;
     padding: 12px;
     border-radius: 10px;
@@ -39,16 +43,57 @@
     height: 100%;
     width: 0%;
     background: #4CAF50;
+    transition: width 0.2s ease;
   }
 
+  .subheading {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0 0 10px;
+  }
+
+  .log-empty {
+    color: #666;
+    font-size: 0.95rem;
+    margin: 0;
+  }
+
+  .log-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .log-item,
   .food {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
     background: white;
     margin-bottom: 8px;
     padding: 10px;
     border-radius: 8px;
+  }
+
+  .log-item {
+    margin-bottom: 0;
+    padding: 8px 0;
+    border-radius: 0;
+    border-bottom: 1px solid #eee;
+  }
+
+  .log-item:last-child {
+    border-bottom: none;
+  }
+
+  .log-item-text {
+    flex: 1;
+    font-size: 0.95rem;
+  }
+
+  .food-name {
+    flex: 1;
   }
 
   button {
@@ -58,12 +103,46 @@
     border: none;
     background: #4CAF50;
     color: white;
+    cursor: pointer;
+  }
+
+  button:active {
+    transform: scale(0.98);
+  }
+
+  .undo-btn {
+    background: #888;
+    font-size: 14px;
+    padding: 5px 10px;
+    white-space: nowrap;
+  }
+
+  .undo-last {
+    background: #666;
+    width: 100%;
+    margin-top: 8px;
   }
 
   .reset {
     background: #e74c3c;
     margin-top: 12px;
     width: 100%;
+  }
+
+  .button-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  @media (min-width: 640px) {
+    .button-row {
+      flex-direction: row;
+    }
+
+    .button-row button {
+      flex: 1;
+    }
   }
 </style>
 </head>
@@ -72,7 +151,7 @@
 
 <h1>Daily Protein and Fiber Tally</h1>
 
-<div class="totals">
+<div class="panel">
   <div><strong>Protein:</strong> <span id="protein">0</span> / 130g</div>
   <div class="bar-container"><div id="proteinBar" class="bar"></div></div>
 
@@ -80,9 +159,17 @@
   <div class="bar-container"><div id="fiberBar" class="bar"></div></div>
 </div>
 
-<div id="foods"></div>
+<div class="panel">
+  <p class="subheading">Today’s tally</p>
+  <div id="log"></div>
 
-<button class="reset" onclick="resetDay()">Reset Day</button>
+  <div class="button-row">
+    <button class="undo-last" onclick="undoLastTap()">Undo Last Tap</button>
+    <button class="reset" onclick="resetDay()">Reset Day</button>
+  </div>
+</div>
+
+<div id="foods"></div>
 
 <script>
 const PROTEIN_GOAL = 130;
@@ -114,6 +201,7 @@ const foods = [
 ];
 
 let totals = { protein: 0, fiber: 0 };
+let logEntries = [];
 
 // Daily reset check
 const today = new Date().toDateString();
@@ -122,11 +210,21 @@ const savedDate = localStorage.getItem("date");
 if (savedDate !== today) {
   localStorage.setItem("date", today);
   localStorage.setItem("totals", JSON.stringify({ protein: 0, fiber: 0 }));
+  localStorage.setItem("logEntries", JSON.stringify([]));
 }
 
 // Load saved totals
 const savedTotals = JSON.parse(localStorage.getItem("totals"));
 if (savedTotals) totals = savedTotals;
+
+// Load saved log
+const savedLog = JSON.parse(localStorage.getItem("logEntries"));
+if (savedLog) logEntries = savedLog;
+
+function saveState() {
+  localStorage.setItem("totals", JSON.stringify(totals));
+  localStorage.setItem("logEntries", JSON.stringify(logEntries));
+}
 
 function updateDisplay() {
   document.getElementById("protein").innerText = totals.protein.toFixed(1);
@@ -137,19 +235,82 @@ function updateDisplay() {
 
   document.getElementById("fiberBar").style.width =
     Math.min((totals.fiber / FIBER_GOAL) * 100, 100) + "%";
+
+  renderLog();
 }
 
 function addFood(index) {
-  totals.protein += foods[index].protein;
-  totals.fiber += foods[index].fiber;
-  localStorage.setItem("totals", JSON.stringify(totals));
+  const food = foods[index];
+
+  totals.protein += food.protein;
+  totals.fiber += food.fiber;
+
+  logEntries.push({
+    name: food.name,
+    protein: food.protein,
+    fiber: food.fiber,
+    timestamp: Date.now()
+  });
+
+  saveState();
   updateDisplay();
+}
+
+function undoEntry(index) {
+  const entry = logEntries[index];
+  if (!entry) return;
+
+  totals.protein -= entry.protein;
+  totals.fiber -= entry.fiber;
+
+  totals.protein = Math.max(0, totals.protein);
+  totals.fiber = Math.max(0, totals.fiber);
+
+  logEntries.splice(index, 1);
+
+  saveState();
+  updateDisplay();
+}
+
+function undoLastTap() {
+  if (logEntries.length === 0) return;
+  undoEntry(logEntries.length - 1);
 }
 
 function resetDay() {
   totals = { protein: 0, fiber: 0 };
-  localStorage.setItem("totals", JSON.stringify(totals));
+  logEntries = [];
+  saveState();
   updateDisplay();
+}
+
+function renderLog() {
+  const logContainer = document.getElementById("log");
+
+  if (logEntries.length === 0) {
+    logContainer.innerHTML = '<p class="log-empty">Nothing tallied yet.</p>';
+    return;
+  }
+
+  const reversedEntries = [...logEntries].reverse();
+
+  logContainer.innerHTML = `
+    <div class="log-list">
+      ${reversedEntries.map((entry, reversedIndex) => {
+        const realIndex = logEntries.length - 1 - reversedIndex;
+        return `
+          <div class="log-item">
+            <div class="log-item-text">
+              ${entry.name}
+              <br>
+              <small>${entry.protein}g protein · ${entry.fiber}g fiber</small>
+            </div>
+            <button class="undo-btn" onclick="undoEntry(${realIndex})">Undo</button>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
 }
 
 // Render foods
@@ -159,7 +320,7 @@ foods.forEach((food, index) => {
   const div = document.createElement("div");
   div.className = "food";
   div.innerHTML = `
-    <span>${food.name}</span>
+    <span class="food-name">${food.name}</span>
     <button onclick="addFood(${index})">+1</button>
   `;
   container.appendChild(div);
