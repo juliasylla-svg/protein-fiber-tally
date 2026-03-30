@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Food Tally</title>
+
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    padding: 16px;
+    background: #f7f7f7;
+  }
+
+  h1 { margin-bottom: 8px; }
+
+  .totals {
+    background: white;
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+
+  .bar-container {
+    background: #eee;
+    border-radius: 6px;
+    height: 12px;
+    margin: 6px 0 12px;
+    overflow: hidden;
+  }
+
+  .bar {
+    height: 100%;
+    width: 0%;
+    background: #4CAF50;
+  }
+
+  .food {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    margin-bottom: 8px;
+    padding: 10px;
+    border-radius: 8px;
+  }
+
+  button {
+    font-size: 16px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: none;
+    background: #4CAF50;
+    color: white;
+  }
+
+  .reset {
+    background: #e74c3c;
+    margin-top: 12px;
+    width: 100%;
+  }
+</style>
+</head>
+
+<body>
+
+<h1>Daily Protein and Fiber Tally</h1>
+
+<div class="totals">
+  <div><strong>Protein:</strong> <span id="protein">0</span> / 130g</div>
+  <div class="bar-container"><div id="proteinBar" class="bar"></div></div>
+
+  <div><strong>Fiber:</strong> <span id="fiber">0</span> / 30g</div>
+  <div class="bar-container"><div id="fiberBar" class="bar"></div></div>
+</div>
+
+<div id="foods"></div>
+
+<button class="reset" onclick="resetDay()">Reset Day</button>
+
+<script>
+const PROTEIN_GOAL = 130;
+const FIBER_GOAL = 30;
+
+// Alphabetized foods
+const foods = [
+  { name: "Almonds (2 tbsp)", protein: 3, fiber: 2 },
+  { name: "Apple (½)", protein: 0, fiber: 2 },
+  { name: "Berries (¼ cup)", protein: 0, fiber: 2 },
+  { name: "Black beans (½ cup)", protein: 7, fiber: 7 },
+  { name: "Broccoli (½ cup)", protein: 2, fiber: 2.5 },
+  { name: "Chicken (2 oz)", protein: 15, fiber: 0 },
+  { name: "Chia (1 tbsp)", protein: 2.5, fiber: 5 },
+  { name: "Chickpeas (½ cup)", protein: 7, fiber: 6 },
+  { name: "Edamame (½ cup)", protein: 8, fiber: 4 },
+  { name: "Eggs (1)", protein: 6, fiber: 0 },
+  { name: "Flax (1 tbsp)", protein: 1.5, fiber: 2 },
+  { name: "Greek yogurt (½ cup)", protein: 10, fiber: 0 },
+  { name: "Green peas (½ cup)", protein: 4, fiber: 3 },
+  { name: "Lentils (½ cup)", protein: 9, fiber: 8 },
+  { name: "Oats (¼ cup)", protein: 2.5, fiber: 2 },
+  { name: "Peanut butter (1 tbsp)", protein: 4, fiber: 1 },
+  { name: "Protein powder (½ scoop)", protein: 12, fiber: 1 },
+  { name: "Quinoa (½ cup)", protein: 4, fiber: 2 },
+  { name: "Sweet potato (½)", protein: 1, fiber: 2 },
+  { name: "Tofu", protein: 10, fiber: 1 },
+  { name: "Whole grain bread (1 slice)", protein: 4, fiber: 3 }
+];
+
+let totals = { protein: 0, fiber: 0 };
+
+// Daily reset check
+const today = new Date().toDateString();
+const savedDate = localStorage.getItem("date");
+
+if (savedDate !== today) {
+  localStorage.setItem("date", today);
+  localStorage.setItem("totals", JSON.stringify({ protein: 0, fiber: 0 }));
+}
+
+// Load saved totals
+const savedTotals = JSON.parse(localStorage.getItem("totals"));
+if (savedTotals) totals = savedTotals;
+
+function updateDisplay() {
+  document.getElementById("protein").innerText = totals.protein.toFixed(1);
+  document.getElementById("fiber").innerText = totals.fiber.toFixed(1);
+
+  document.getElementById("proteinBar").style.width =
+    Math.min((totals.protein / PROTEIN_GOAL) * 100, 100) + "%";
+
+  document.getElementById("fiberBar").style.width =
+    Math.min((totals.fiber / FIBER_GOAL) * 100, 100) + "%";
+}
+
+function addFood(index) {
+  totals.protein += foods[index].protein;
+  totals.fiber += foods[index].fiber;
+  localStorage.setItem("totals", JSON.stringify(totals));
+  updateDisplay();
+}
+
+function resetDay() {
+  totals = { protein: 0, fiber: 0 };
+  localStorage.setItem("totals", JSON.stringify(totals));
+  updateDisplay();
+}
+
+// Render foods
+const container = document.getElementById("foods");
+
+foods.forEach((food, index) => {
+  const div = document.createElement("div");
+  div.className = "food";
+  div.innerHTML = `
+    <span>${food.name}</span>
+    <button onclick="addFood(${index})">+1</button>
+  `;
+  container.appendChild(div);
+});
+
+updateDisplay();
+</script>
+
+</body>
+</html>
