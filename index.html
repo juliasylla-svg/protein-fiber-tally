@@ -15,6 +15,7 @@
   body {
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     padding: 16px;
+    padding-bottom: 280px;
     background: #f7f7f7;
     max-width: 42rem;
     margin: 0 auto;
@@ -61,7 +62,7 @@
   .log-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0;
   }
 
   .log-item,
@@ -71,9 +72,12 @@
     align-items: center;
     gap: 12px;
     background: white;
-    margin-bottom: 8px;
     padding: 10px;
     border-radius: 8px;
+  }
+
+  .food {
+    margin-bottom: 8px;
   }
 
   .log-item {
@@ -90,10 +94,18 @@
   .log-item-text {
     flex: 1;
     font-size: 0.95rem;
+    min-width: 0;
   }
 
   .food-name {
     flex: 1;
+  }
+
+  .log-meta {
+    display: block;
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 2px;
   }
 
   button {
@@ -110,29 +122,45 @@
     transform: scale(0.98);
   }
 
-  .undo-btn {
+  .remove-btn {
     background: #888;
     font-size: 14px;
     padding: 5px 10px;
     white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .undo-last {
     background: #666;
-    width: 100%;
-    margin-top: 8px;
   }
 
   .reset {
     background: #e74c3c;
-    margin-top: 12px;
-    width: 100%;
   }
 
   .button-row {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    margin-top: 10px;
+  }
+
+  .tally-panel {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 42rem;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    z-index: 1000;
+    margin: 0;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  }
+
+  #log {
+    max-height: 140px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   @media (min-width: 640px) {
@@ -159,7 +187,9 @@
   <div class="bar-container"><div id="fiberBar" class="bar"></div></div>
 </div>
 
-<div class="panel">
+<div id="foods"></div>
+
+<div class="panel tally-panel" id="tallyPanel">
   <p class="subheading">Today’s tally</p>
   <div id="log"></div>
 
@@ -169,13 +199,10 @@
   </div>
 </div>
 
-<div id="foods"></div>
-
 <script>
 const PROTEIN_GOAL = 130;
 const FIBER_GOAL = 30;
 
-// Alphabetized foods
 const foods = [
   { name: "Almonds (2 tbsp)", protein: 3, fiber: 2 },
   { name: "Apple (½)", protein: 0, fiber: 2 },
@@ -203,7 +230,6 @@ const foods = [
 let totals = { protein: 0, fiber: 0 };
 let logEntries = [];
 
-// Daily reset check
 const today = new Date().toDateString();
 const savedDate = localStorage.getItem("date");
 
@@ -213,11 +239,9 @@ if (savedDate !== today) {
   localStorage.setItem("logEntries", JSON.stringify([]));
 }
 
-// Load saved totals
 const savedTotals = JSON.parse(localStorage.getItem("totals"));
 if (savedTotals) totals = savedTotals;
 
-// Load saved log
 const savedLog = JSON.parse(localStorage.getItem("logEntries"));
 if (savedLog) logEntries = savedLog;
 
@@ -246,19 +270,21 @@ function addFood(index) {
   totals.fiber += food.fiber;
 
   logEntries.push({
+    id: Date.now() + Math.random(),
     name: food.name,
     protein: food.protein,
-    fiber: food.fiber,
-    timestamp: Date.now()
+    fiber: food.fiber
   });
 
   saveState();
   updateDisplay();
 }
 
-function undoEntry(index) {
+function removeEntry(id) {
+  const index = logEntries.findIndex(entry => entry.id === id);
+  if (index === -1) return;
+
   const entry = logEntries[index];
-  if (!entry) return;
 
   totals.protein -= entry.protein;
   totals.fiber -= entry.fiber;
@@ -274,7 +300,8 @@ function undoEntry(index) {
 
 function undoLastTap() {
   if (logEntries.length === 0) return;
-  undoEntry(logEntries.length - 1);
+  const lastEntry = logEntries[logEntries.length - 1];
+  removeEntry(lastEntry.id);
 }
 
 function resetDay() {
@@ -296,24 +323,19 @@ function renderLog() {
 
   logContainer.innerHTML = `
     <div class="log-list">
-      ${reversedEntries.map((entry, reversedIndex) => {
-        const realIndex = logEntries.length - 1 - reversedIndex;
-        return `
-          <div class="log-item">
-            <div class="log-item-text">
-              ${entry.name}
-              <br>
-              <small>${entry.protein}g protein · ${entry.fiber}g fiber</small>
-            </div>
-            <button class="undo-btn" onclick="undoEntry(${realIndex})">Undo</button>
+      ${reversedEntries.map((entry) => `
+        <div class="log-item">
+          <div class="log-item-text">
+            ${entry.name}
+            <span class="log-meta">${entry.protein}g protein · ${entry.fiber}g fiber</span>
           </div>
-        `;
-      }).join("")}
+          <button class="remove-btn" onclick="removeEntry(${JSON.stringify(entry.id)})">Remove</button>
+        </div>
+      `).join("")}
     </div>
   `;
 }
 
-// Render foods
 const container = document.getElementById("foods");
 
 foods.forEach((food, index) => {
